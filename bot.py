@@ -11,6 +11,7 @@ import yfinance as yfin
 yfin.pdr_override()
 
 import matplotlib.pyplot as plt
+import asyncio
 
 from newsapi import NewsApiClient
 
