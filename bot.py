@@ -5,7 +5,10 @@ from discord.ext import commands, tasks
 import CONFIG
 
 from datetime import datetime, timedelta
+import pandas
 from pandas_datareader import data as pdr
+import yfinance as yfin
+yfin.pdr_override()
 
 import matplotlib.pyplot as plt
 
@@ -41,7 +44,7 @@ def get_news(source="bbc-news"):
         embed.add_field(name=l["url"], value=l["publishedAt"], inline=False)
     return embed
 
-@tasks.loop(seconds=5)
+@tasks.loop(hours=24)
 async def called_once_a_day():
     URL = "https://finance.yahoo.com/quote/^QMI"
     page = requests.get(URL)
@@ -66,6 +69,18 @@ async def called_once_a_day():
                 except Exception:
                     continue
 
+# To make send news before market open hours
+@called_once_a_day.before_loop
+async def before():
+    tomorrow = datetime.now() + timedelta(1)
+
+    tomorrow_morning = datetime(year = tomorrow.year, month = tomorrow.month, day = tomorrow.day, hour=6, minute=0, second=0)
+
+    time_left = (tomorrow_morning - datetime.now()).seconds
+
+    await asyncio.sleep(time_left)
+    await bot.wait_until_ready()
+
 def write_to_file(filename, text):
     file = open(filename, 'w')
     file.write(text)
@@ -84,6 +99,11 @@ async def set_daily_news(ctx):
 
     await ctx.send(embed = embed)
 
+
+def get_data(stock, start_date, end_date):
+    df = pdr.get_data_yahoo(stock, start=start_date, end=end_date)
+    return df['Adj Close']
+
 @bot.command(name="chart", help="Return stock performance over a period of 2 years time")
 async def chart(ctx, quo="msft"):
 
@@ -96,10 +116,7 @@ async def chart(ctx, quo="msft"):
     current_date_arr = current_date.split('-')
     old_date = str(old_year) + '-' + current_date_arr[1] + '-' + current_date_arr[2]
 
-    data = pdr.DataReader(quo,
-                       start=old_date,
-                       end=current_date,
-                       data_source='yahoo')['Adj Close']
+    data = get_data(quo, old_date, current_date)
 
     # clear the graph before creating one
     plt.clf()
