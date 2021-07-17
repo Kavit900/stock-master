@@ -102,12 +102,21 @@ async def set_daily_news(ctx):
 
 
 def get_data(stock, start_date, end_date):
-    df = pdr.get_data_yahoo(stock, start=start_date, end=end_date)
-    return df['Adj Close']
+    for retries in range(0,5):
+        try:
+            df = pdr.get_data_yahoo(stock, start=start_date, end=end_date)
+            return df['Adj Close']
+        except:
+            print("[ERROR]")
+            print ('yfinance JSONDecodeError, retyring: ' + str(retries))
+            print ('ticker: ' + stock + 'start: ' + str(start_date) + ';end: ' + str(end_date) + ';')
+    return []
+
 
 @bot.command(name="chart", help="Return stock performance over a period of 2 years time")
 async def chart(ctx, quo="msft"):
 
+    print("[HERE]")
     now = datetime.now()
 
     old_year = now.year - 2
@@ -118,7 +127,6 @@ async def chart(ctx, quo="msft"):
     old_date = str(old_year) + '-' + current_date_arr[1] + '-' + current_date_arr[2]
 
     data = get_data(quo, old_date, current_date)
-
     # clear the graph before creating one
     plt.clf()
 
